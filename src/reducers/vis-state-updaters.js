@@ -526,6 +526,7 @@ export function setFilterUpdater(state, action) {
   } = action;
 
   let newFilter = set([prop], value, state.filters[idx]);
+
   let newState = state;
 
   const {dataId} = newFilter;
@@ -550,7 +551,10 @@ export function setFilterUpdater(state, action) {
       // TODO: Next PR for UI filter name will only update filter name but it won't have side effects
       // we are gonna use pair of datasets and fieldIdx to update the filter
       const datasetId = newFilter.dataId[valueIndex];
-      const {filter: updatedFilter, dataset: newDataset} = applyFilterFieldName(
+      const {
+        filter: updatedFilter,
+        dataset: newDataset
+      } = applyFilterFieldName(
         newFilter,
         state.datasets[datasetId],
         value,
@@ -573,7 +577,6 @@ export function setFilterUpdater(state, action) {
       // only filter the current dataset
       break;
     default:
-
       break;
   }
 
@@ -1162,7 +1165,7 @@ export const updateVisDataUpdater = (state, action) => {
     ? action.datasets
     : [action.datasets];
 
-  const newDateEntries = datasets.reduce(
+  const newDataEntries = datasets.reduce(
     (accu, {info = {}, data}) => ({
       ...accu,
       ...(createNewDataEntry({info, data}, state.datasets) || {})
@@ -1170,7 +1173,7 @@ export const updateVisDataUpdater = (state, action) => {
     {}
   );
 
-  if (!Object.keys(newDateEntries).length) {
+  if (!Object.keys(newDataEntries).length) {
     return state;
   }
 
@@ -1185,7 +1188,7 @@ export const updateVisDataUpdater = (state, action) => {
     ...previousState,
     datasets: {
       ...previousState.datasets,
-      ...newDateEntries
+      ...newDataEntries
     }
   };
 
@@ -1207,12 +1210,12 @@ export const updateVisDataUpdater = (state, action) => {
   mergedState = mergeSplitMaps(mergedState, splitMapsToBeMerged);
 
   let newLayers = mergedState.layers.filter(
-    l => l.config.dataId in newDateEntries
+    l => l.config.dataId in newDataEntries
   );
 
   if (!newLayers.length) {
     // no layer merged, find defaults
-    const result = addDefaultLayers(mergedState, newDateEntries);
+    const result = addDefaultLayers(mergedState, newDataEntries);
     mergedState = result.state;
     newLayers = result.newLayers;
   }
@@ -1220,7 +1223,7 @@ export const updateVisDataUpdater = (state, action) => {
   if (mergedState.splitMaps.length) {
     // if map is split, add new layers to splitMaps
     newLayers = mergedState.layers.filter(
-      l => l.config.dataId in newDateEntries
+      l => l.config.dataId in newDataEntries
     );
     mergedState = {
       ...mergedState,
@@ -1232,17 +1235,17 @@ export const updateVisDataUpdater = (state, action) => {
   mergedState = mergeInteractions(mergedState, interactionToBeMerged);
 
   // if no tooltips merged add default tooltips
-  Object.keys(newDateEntries).forEach(dataId => {
+  Object.keys(newDataEntries).forEach(dataId => {
     const tooltipFields =
       mergedState.interactionConfig.tooltip.config.fieldsToShow[dataId];
     if (!Array.isArray(tooltipFields) || !tooltipFields.length) {
-      mergedState = addDefaultTooltips(mergedState, newDateEntries[dataId]);
+      mergedState = addDefaultTooltips(mergedState, newDataEntries[dataId]);
     }
   });
 
   let updatedState = updateAllLayerDomainData(
     mergedState,
-    Object.keys(newDateEntries)
+    Object.keys(newDataEntries)
   );
 
   // register layer animation domain,
@@ -1296,37 +1299,30 @@ function closeSpecificMapAtIndex(state, action) {
  * @public
  */
 export const loadFilesUpdater = (state, action) => {
-
   const {files} = action;
   const filesToLoad = files.map(fileBlob => processFileToLoad(fileBlob));
 
   // reader -> parser -> augment -> receiveVisData
   const loadFileTasks = [
-    Task.all(filesToLoad.map(LOAD_FILE_TASK)).bimap(
-      results => {
-        const data = results.reduce(
-          (f, c) => ({
-            // using concat here because the current datasets could be an array or a single item
-            datasets: f.datasets.concat(c.datasets),
-            // we need to deep merge this thing unless we find a better solution
-            // this case will only happen if we allow to load multiple keplergl json files
-            config: {
-              ...f.config,
-              ...(c.config || {})
-            }
-          }),
-          {datasets: [], config: {}, options: {centerMap: true}}
-        );
-        return addDataToMap(data);
-      },
-      loadFilesErr
-    )
+    Task.all(filesToLoad.map(LOAD_FILE_TASK)).bimap(results => {
+      const data = results.reduce(
+        (f, c) => ({
+          // using concat here because the current datasets could be an array or a single item
+          datasets: f.datasets.concat(c.datasets),
+          // we need to deep merge this thing unless we find a better solution
+          // this case will only happen if we allow to load multiple keplergl json files
+          config: {
+            ...f.config,
+            ...(c.config || {})
+          }
+        }),
+        {datasets: [], config: {}, options: {centerMap: true}}
+      );
+      return addDataToMap(data);
+    }, loadFilesErr)
   ];
 
-  return withTask(
-    state,
-    loadFileTasks
-  );
+  return withTask(state, loadFileTasks);
 };
 
 /**
